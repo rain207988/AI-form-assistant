@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.xzy</groupId>
+    <artifactId>chat2Excel</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+<!--    子工程-->
+    <modules>
+        <module>common-service</module>
+    </modules>
+
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.0</version>
+    </parent>
+
+    <properties>
+
+            <!-- JDK 编译版本 -->
+            <maven.compiler.source>17</maven.compiler.source>
+            <maven.compiler.target>17</maven.compiler.target>
+            <java.version>17</java.version>
+            <!-- 依赖版本管理（按功能分区列出） -->
+            <mybatis-plus.version>3.5.7</mybatis-plus.version>
+            <poi.version>5.2.4</poi.version>
+            <spring-cloud.version>2023.0.0</spring-cloud.version>
+            <spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
+            <jwt.version>0.11.5</jwt.version>
+            <oss.version>3.17.4</oss.version>
+            <pinyin4j.version>2.5.1</pinyin4j.version>
+            <fastjson.version>2.0.43</fastjson.version>
+            <feign-form.version>3.8.0</feign-form.version>
+            <nacos.version>2022.0.0.0</nacos.version>
+            <httpclient5.version>5.2.1</httpclient5.version>
+            <commons-pool2.version>2.11.1</commons-pool2.version>
+            <spring-retry.version>2.0.5</spring-retry.version>
+
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- MyBatis Plus -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>
