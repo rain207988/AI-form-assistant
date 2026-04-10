@@ -226,7 +226,12 @@ public class LogOperationAspect {
      * @return
      */
     private String getFileName(Object object){
-
+        try {
+            Method method =  object.getClass().getMethod("getOriginalFilename");
+            return (String) method.invoke(object);
+        } catch (Exception e) {
+            return "文件未知!";
+        }
 
     }
 
