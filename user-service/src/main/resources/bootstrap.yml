@@ -1,0 +1,103 @@
+server:
+  port: 9001
+
+spring:
+  application:
+    name: user-service
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.100.232:8848
+        username: nacos
+        password: ${NACOS_PASSWORD:change-me}
+        file-extension: yml
+        namespace: public
+        group: DEFAULT_GROUP
+      discovery:
+        server-addr: 192.168.100.232:8848
+        username: nacos
+        password: ${NACOS_PASSWORD:change-me}
+        namespace: public
+
+  # MySQL数据源配置
+  datasource:
+    url: jdbc:mysql://192.168.100.232:3306/bite_excel?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+    username: bite
+    password: ${MYSQL_PASSWORD:change-me}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # Jackson配置
+  jackson:
+    date-format: HH:mm:ss
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+      fail-on-null-for-primitives: false
+      accept-empty-string-as-null-object: true
+      accept-single-value-as-array: true
+
+  # Spring Retry配置
+  retry:
+    enabled: true
+    max-attempts: 3
+    initial-interval: 1000
+    max-interval: 10000
+    multiplier: 2.0
+
+  # Redis配置
+  data:
+    redis:
+      host: 192.168.100.232
+      port: 6379
+      password: ${REDIS_PASSWORD:change-me}
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  # 邮件配置
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: ${MAIL_USERNAME:example@example.com}
+    password: ${MAIL_PASSWORD:change-me}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          socketFactory:
+            class: javax.net.ssl.SSLSocketFactory
+
+# MyBatis Plus配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.bitejiuyeke.user.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      table-underline: true
+
+# 安全配置
+security:
+  gateway:
+    token: ${GATEWAY_INTERNAL_TOKEN:change-me}
+    enabled: true
+
+# 自定义日志配置
+logging:
+  pattern:
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){cyan} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"

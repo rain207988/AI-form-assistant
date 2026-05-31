@@ -1,0 +1,165 @@
+server:
+  port: 9002
+
+spring:
+  application:
+    name: ai-service
+
+  # 数据源
+  datasource:
+    url: jdbc:mysql://192.168.100.232:3306/bite_excel?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+    username: bite
+    password: ${MYSQL_PASSWORD:change-me}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # Jackson
+  jackson:
+    date-format: HH:mm:ss
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+      fail-on-null-for-primitives: false
+      accept-empty-string-as-null-object: true
+      accept-single-value-as-array: true
+
+  # Spring Retry
+  retry:
+    enabled: true
+    max-attempts: 3
+    initial-interval: 1000
+    max-interval: 10000
+    multiplier: 2.0
+
+  # Redis
+  data:
+    redis:
+      host: 192.168.100.232
+      port: 6379
+      password: ${REDIS_PASSWORD:change-me}
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  # 邮件配置
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: ${MAIL_USERNAME:example@example.com}
+    password: ${MAIL_PASSWORD:change-me}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          socketFactory:
+            class: javax.net.ssl.SSLSocketFactory
+
+  ai:
+    default-provider: dashscope
+
+    dashscope:
+      api-key: ${spring.ai.alibaba.dashscope.api-key}
+      chat:
+        options:
+          model: ${spring.ai.alibaba.dashscope.chat.options.model}
+          temperature: ${spring.ai.alibaba.dashscope.chat.options.temperature}
+      embedding:
+        enabled: true
+        options:
+          model: text-embedding-v3
+
+    # 阿里云 DashScope 详细配置
+    alibaba:
+      dashscope:
+        api-key: ${DASHSCOPE_API_KEY:your-dashscope-api-key}
+        chat:
+          options:
+            model: qwen-plus
+            temperature: 0.1
+            max-tokens: 4000
+        http:
+          connect-timeout: 30000
+          read-timeout: 120000
+          write-timeout: 120000
+
+    # DeepSeek 配置
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:your-deepseek-api-key}
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-chat
+          temperature: 0.1
+          max-tokens: 4000
+      http:
+        connect-timeout: 30000
+        read-timeout: 120000
+        write-timeout: 120000
+
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.100.232:8848
+        username: nacos
+        password: ${NACOS_PASSWORD:change-me}
+        file-extension: yml
+        namespace: public
+        group: DEFAULT_GROUP
+      discovery:
+        server-addr: 192.168.100.232:8848
+        username: nacos
+        password: ${NACOS_PASSWORD:change-me}
+        namespace: public
+
+# MyBatis Plus
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*.xml
+  type-aliases-package: com.bitejiuyeke.ai.entity,com.bitejiuyeke.file.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      table-underline: true
+
+# 阿里云OSS配置
+aliyun:
+  oss:
+    endpoint: oss-cn-beijing.aliyuncs.com
+    access-key-id: ${OSS_ACCESS_KEY_ID:your-oss-access-key-id}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:your-oss-access-key-secret}
+    bucket-name: bite-lz
+    max-size: 52428800
+
+
+# 网关安全
+security:
+  gateway:
+    token: ${GATEWAY_INTERNAL_TOKEN:change-me}
+    enabled: true
+
+# 日志
+logging:
+  pattern:
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){cyan} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+
+chat2excel:
+  rag:
+    enabled: true
+    top-k: 4
+    similarity-threshold: 0.45
+    sample-rows-per-table: 15
+    rows-per-chunk: 5
+    cache-minutes: 30

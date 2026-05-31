@@ -1,0 +1,82 @@
+version: '3.8'
+#启动命令 docker compose -p bite_excel -f docker-compose-nacos.yml up -d
+services:
+  bite_excel-mysql:
+    container_name: bite_excel-mysql
+    image: mysql:8.4.2
+    ports:
+      - "3306:3306"
+    volumes:
+      # 数据挂载
+      - ../data/bite_exceldata/mysql/data:/var/lib/mysql
+      # 配置挂载
+      - ./mysql/init/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./mysql/sql:/opt/sql
+    command: [
+      'mysqld',
+      '--innodb-buffer-pool-size=80M',
+      '--character-set-server=utf8mb4',
+      '--collation-server=utf8mb4_unicode_ci',
+      '--default-time-zone=+8:00',
+      '--lower-case-table-names=1',
+      '--explicit_defaults_for_timestamp=true',
+      '--server-id=1',
+      '--log-bin=mysql-bin',
+      '--binlog-ignore-db=mysql',
+      '--binlog-cache-size=256M',
+      '--binlog-format=ROW',
+      '--max_connections=2000'
+    ]
+    restart: always
+    networks:
+      - bite_excel_network
+    healthcheck:
+      test: mysql --user=bite -h127.0.0.1 --password='${MYSQL_ROOT_PASSWORD:-change-me}' -e "SELECT 1;"
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me}
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
+  bite_excel-nacos:
+    container_name: bite_excel-nacos
+    image: nacos/nacos-server:v2.2.2
+    environment:
+      - MODE=standalone
+      - JVM_XMS=512m
+      - JVM_XMX=512m
+      - JVM_XMN=256m
+      - SPRING_DATASOURCE_PLATFORM=mysql
+      - MYSQL_SERVICE_HOST=bite_excel-mysql
+      - MYSQL_SERVICE_PORT=3306
+      - MYSQL_SERVICE_DB_NAME=bite_excel_nacos
+      - MYSQL_SERVICE_USER=bite
+      - MYSQL_SERVICE_PASSWORD=${MYSQL_SERVICE_PASSWORD:-change-me}
+    volumes:
+      - ../data/bite_exceldata/nacos/logs/:/home/nacos/logs
+      - ../data/bite_exceldata/nacos/tomcatlogs/:/home/bit/nacos/tomcat/logs/
+      - ./nacos/conf/application.properties:/home/nacos/conf/application.properties
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "9849:9849"
+    restart: always
+    networks:
+      - bite_excel_network
+    depends_on:
+      bite_excel-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8848/nacos" ]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 10
+networks:
+  bite_excel_network:

@@ -1,0 +1,22 @@
+version: '3.8'
+#启动命令 docker compose -p bite_excel -f docker-compose-redis.yml up -d
+services:
+  bite_excel-redis:
+    container_name: bite_excel-redis
+    image: redis:7.0.15
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ../data/bite_exceldata/redis/data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: always
+    networks:
+      - bite_excel_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+networks:
+  bite_excel_network:

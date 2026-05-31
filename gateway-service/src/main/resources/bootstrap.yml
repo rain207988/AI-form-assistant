@@ -1,0 +1,128 @@
+spring:
+  application:
+    name: gateway-service
+  main:
+    web-application-type: reactive  # 设置为响应式应用类型，避免与Spring MVC冲突
+
+  # Jackson配置
+  jackson:
+    date-format: HH:mm:ss
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+      fail-on-null-for-primitives: false
+      accept-empty-string-as-null-object: true
+      accept-single-value-as-array: true
+
+  # Redis配置 - Gateway 服务使用更长的超时时间
+  data:
+    redis:
+      host: 192.168.100.232
+      port: 6379
+      password: ${REDIS_PASSWORD:change-me}
+      database: 0
+      timeout: 10000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  # Nacos服务发现配置
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.100.232:8848
+        username: nacos
+        password: ${NACOS_PASSWORD:change-me}
+        namespace: public
+        enabled: true  # 启用 Nacos 服务发现
+
+    gateway:
+      # 默认过滤器
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - JwtAuth
+
+      # 全局跨域配置
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            # 允许跨域的源（使用 allowedOriginPatterns 支持通配符和凭证）
+            allowedOriginPatterns: "*"
+            # 允许跨域的HTTP方法
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            # 允许跨域的请求头
+            allowedHeaders: "*"
+            # 允许携带凭证
+            allowCredentials: true
+            # 跨域预检的有效期，单位为秒
+            maxAge: 3600
+
+      # 路由配置
+      routes:
+        # 用户服务路由
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=2  # 去掉 /api/v1，保留后续路径
+
+        # 文件服务路由
+        - id: file-service
+          uri: lb://file-service
+          predicates:
+            - Path=/api/v1/files/**
+          filters:
+            - StripPrefix=2  # 去掉 /api/v1，保留后续路径
+
+        # AI服务路由 - llm接口
+        - id: ai-service-llm
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/v1/llm/**
+          filters:
+            - StripPrefix=2  # 去掉 /api/v1，保留后续路径
+
+        # AI服务路由 - ai接口
+        - id: ai-service-ai
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/v1/ai/**
+          filters:
+            - StripPrefix=2  # 去掉 /api/v1，保留后续路径
+
+
+# MyBatis Plus公共配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      table-underline: true
+
+# 安全配置 - 网关令牌（所有服务共享）
+security:
+  gateway:
+    token: ${GATEWAY_INTERNAL_TOKEN:change-me}
+    enabled: true  # 设置为 false 可以禁用网关检查（开发环境）
+  whitelist:
+    - /users/auth
+    - /users/verification-code
+
+# 自定义日志配置
+logging:
+  pattern:
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){cyan} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
