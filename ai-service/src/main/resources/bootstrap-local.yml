@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/bite_excel?useSSL=false&serverTimezone=UTC&characterEncoding=utf8
+    username: bite
+    password: bite@123
+
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password:
+
+  cloud:
+    discovery:
+      enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+
+  ai:
+    alibaba:
+      dashscope:
+        api-key: ${DASHSCOPE_API_KEY:your-dashscope-api-key}
+
+security:
+  gateway:
+    enabled: false
+
+chat2excel:
+  pgvector:
+    enabled: true
+    url: jdbc:postgresql://127.0.0.1:5432/chat2excel_vector
+    username: postgres
+    password: change-me
