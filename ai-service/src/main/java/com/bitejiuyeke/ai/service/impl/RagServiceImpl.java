@@ -195,7 +195,7 @@ public class RagServiceImpl implements RagService {
         Object lock = buildLocks.computeIfAbsent(fileId, key -> new Object());
         synchronized (lock) {
             if (ragVectorStoreService.existsByFileId(fileId)) {
-                return new IndexResolution(true, countIndexedChunks(fileId));
+                return new IndexResolution(true, ragVectorStoreService.countByFileId(fileId));
             }
 
             List<RagVectorChunk> chunks = buildVectorChunks(fileId);
