@@ -43,6 +43,11 @@ public class RagContext {
     private List<String> matchedTableNames;
 
     /**
+     * 表级排序结果，格式为 "tableName(0.8732)"
+     */
+    private List<String> rankedTables;
+
+    /**
      * 给前端展示的检索摘要
      */
     private String retrieveSummary;
@@ -59,6 +64,7 @@ public class RagContext {
                 .indexedChunkCount(0)
                 .matchedChunkCount(0)
                 .matchedTableNames(Collections.emptyList())
+                .rankedTables(Collections.emptyList())
                 .retrieveSummary(summary)
                 .promptContext("")
                 .build();

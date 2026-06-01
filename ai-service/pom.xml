@@ -43,6 +43,12 @@
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
+        <!--4.1 PostgreSQL(pgvector) 数据库驱动-->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
         <!--5. mybatis-plus依赖-->
         <dependency>
             <groupId>com.baomidou</groupId>

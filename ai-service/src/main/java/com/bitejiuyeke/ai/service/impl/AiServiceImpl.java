@@ -209,11 +209,15 @@ public class AiServiceImpl implements AiService {
                 ? "复用RAG索引，知识片段数: " + ragContext.getIndexedChunkCount()
                 : "完成RAG索引构建，知识片段数: " + ragContext.getIndexedChunkCount())
                 : ragContext.getRetrieveSummary();
+        String retrieveSummary = ragContext.getRetrieveSummary();
+        if (ragContext.isEnabled() && ragContext.getRankedTables() != null && !ragContext.getRankedTables().isEmpty()) {
+            retrieveSummary = retrieveSummary + "；候选表排序：" + String.join(", ", ragContext.getRankedTables());
+        }
 
         sendProgressEventWithData(sseEmitter, PROGRESS, ProcessStage.BUILD_RAG_INDEX,
                 buildSummary, null, null, null, null);
         sendProgressEventWithData(sseEmitter, PROGRESS, ProcessStage.RETRIEVE_RAG_CONTEXT,
-                ragContext.getRetrieveSummary(), null, null, ragContext.getMatchedChunkCount(), null);
+                retrieveSummary, null, null, ragContext.getMatchedChunkCount(), null);
         return ragContext;
     }
 
@@ -325,15 +329,16 @@ public class AiServiceImpl implements AiService {
 
     private String buildResultSummaryPrompt(String userInput, String sqlQuery, boolean modificationRequest) {
         return String.format(
-                "你是Chat2Excel的数据助手，请基于SQL结果给出简洁、可信的中文回答。\n" +
+                "你是Chat2Excel的数据助手，请基于SQL结果给出简洁、可信的中文回答，当前场景以销售报表分析为主。\n" +
                         "用户问题：%s\n" +
                         "执行SQL：%s\n" +
                         "请求类型：%s\n" +
                         "要求：\n" +
                         "1. 先直接回答结论，再补充关键数据\n" +
                         "2. 只能基于结果样例中的事实回答，不要编造\n" +
-                        "3. 如果是修改请求，需要明确说明数据已被修改\n" +
-                        "4. 控制在3句以内\n",
+                        "3. 如果涉及销售指标，优先用销售额、销量、毛利、区域、客户、时间等业务语言总结\n" +
+                        "4. 如果是修改请求，需要明确说明数据已被修改\n" +
+                        "5. 控制在3句以内\n",
                 userInput,
                 sqlQuery,
                 modificationRequest ? "修改" : "查询"
@@ -405,6 +410,7 @@ public class AiServiceImpl implements AiService {
         int count = sqlGenerationService.excuteUpdate(sql);
         sendProgressEventWithData(sseEmitter, PROGRESS, ProcessStage.EXECUTE_UPDATE_SQL,
                 "执行修改sql", sql, null, count, null);
+        ragService.invalidate(aiChatRequest.getFileId());
         // 5. 把已经修改后的数据再查一遍，上传到oss
         List<Map<String, Object>> result = sqlGenerationService.excuteQuery("select * from " + tableName, tableName);
         sendProgressEventWithData(sseEmitter, PROGRESS, ProcessStage.QUERY_UPDATE_DATA,

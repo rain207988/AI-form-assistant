@@ -36,7 +36,8 @@ public class AiModelServiceImpl implements AiModelService {
                         + "1. 只提取用户问题里真正相关的字段，不要扩写\n"
                         + "2. 如果有多个字段，请用英文逗号分隔\n"
                         + "3. 如果完全提取不到，直接返回 无\n"
-                        + "4. 不要补充解释，不要输出额外内容\n"
+                        + "4. 对销售报表场景，优先识别销售额、销量、毛利、客户、区域、产品、时间等业务词\n"
+                        + "5. 不要补充解释，不要输出额外内容\n"
                         + "实际用户输入：%s\n",
                 userInput
         );
@@ -71,8 +72,10 @@ public class AiModelServiceImpl implements AiModelService {
                         "要求：\n" +
                         "1. 只输出可直接执行的SQL，不要解释\n" +
                         "2. 优先依据当前表和RAG上下文中的字段、样例数据来生成SQL\n" +
-                        "3. 查询条件尽量贴近用户描述，文本查询优先考虑模糊匹配\n" +
-                        "4. 不要输出Markdown代码块\n",
+                        "3. 当前主要用于销售报表，请重点理解销售额、销量、毛利、客户、区域、产品、月份、季度等业务词\n" +
+                        "4. 查询条件尽量贴近用户描述，文本查询优先考虑模糊匹配\n" +
+                        "5. 如果用户要求排行、汇总、趋势、对比，请优先使用group by、sum、count、avg、order by等聚合语义\n" +
+                        "6. 不要输出Markdown代码块\n",
                 tableName, headers, userInput
         );
 
@@ -96,7 +99,9 @@ public class AiModelServiceImpl implements AiModelService {
                         "1. 只输出可直接执行的SQL，不要解释\n" +
                         "2. 只允许生成update语句，不要生成insert、delete、drop、truncate\n" +
                         "3. 优先依据当前表和RAG上下文中的字段、样例数据来生成SQL\n" +
-                        "4. 不要输出Markdown代码块\n",
+                        "4. 当前主要用于销售报表，请重点理解销售额、销量、毛利、客户、区域、产品、月份等业务词\n" +
+                        "5. where条件要尽量精确，避免误修改整表数据\n" +
+                        "6. 不要输出Markdown代码块\n",
                 tableName, headers, userInput
         );
 

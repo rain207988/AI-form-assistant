@@ -15,4 +15,11 @@ public interface RagService {
      * @return RAG上下文
      */
     RagContext retrieveContext(Long fileId, String userInput);
+
+    /**
+     * 当前文件数据被修改后，主动失效内存索引
+     *
+     * @param fileId 当前文件ID
+     */
+    void invalidate(Long fileId);
 }

@@ -1,0 +1,27 @@
+version: '3.8'
+# 启动命令 docker compose -p bite_excel -f docker-compose-pgvector.yml up -d
+services:
+  bite_excel-pgvector:
+    container_name: bite_excel-pgvector
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      TZ: Asia/Shanghai
+      POSTGRES_DB: chat2excel_vector
+      POSTGRES_USER: ${PGVECTOR_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:-change-me}
+    volumes:
+      - ../data/bite_exceldata/pgvector/data:/var/lib/postgresql/data
+      - ./pgvector/init:/docker-entrypoint-initdb.d
+    restart: always
+    networks:
+      - bite_excel_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${PGVECTOR_USERNAME:-postgres} -d chat2excel_vector" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  bite_excel_network:

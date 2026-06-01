@@ -163,3 +163,26 @@ chat2excel:
     sample-rows-per-table: 15
     rows-per-chunk: 5
     cache-minutes: 30
+    max-matched-tables: 3
+    semantic-weight: 0.65
+    lexical-weight: 0.35
+    table-score-threshold: 0.55
+    exact-match-boost: 0.12
+    sales-synonym-groups:
+      - 销售额,成交额,成交金额,GMV,营收,收入
+      - 销量,销售量,件数,出货量,销售件数
+      - 毛利,利润,利润额,毛利润
+      - 客户,商户,经销商,代理商,门店
+      - 区域,大区,省区,片区,城市,地区
+      - 产品,商品,品类,SKU,型号,品牌
+      - 渠道,渠道类型,销售渠道,销售通路
+      - 销售员,业务员,客户经理,招商主管
+      - 日期,时间,月份,月度,季度,年度
+  pgvector:
+    enabled: true
+    url: jdbc:postgresql://192.168.100.232:5432/chat2excel_vector
+    username: ${PGVECTOR_USERNAME:postgres}
+    password: ${PGVECTOR_PASSWORD:change-me}
+    table-name: rag_vector_chunks
+    dimensions: 1024
+    candidate-limit: 12
