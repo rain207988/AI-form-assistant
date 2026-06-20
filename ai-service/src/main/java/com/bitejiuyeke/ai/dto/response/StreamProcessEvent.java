@@ -49,4 +49,7 @@ public class StreamProcessEvent {
     // AI响应内容
     private String aiResponseContent;
 
+    // 附加结构化信息，例如 RAG 阶段的索引状态、命中表和降级原因
+    private Map<String, Object> metadata;
+
 }

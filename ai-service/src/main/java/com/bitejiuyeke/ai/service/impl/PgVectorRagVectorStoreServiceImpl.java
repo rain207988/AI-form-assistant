@@ -67,6 +67,8 @@ public class PgVectorRagVectorStoreServiceImpl implements RagVectorStoreService 
                     create index if not exists idx_%s_embedding_hnsw
                     on %s using hnsw (embedding vector_cosine_ops)
                     """.formatted(pgVectorProperties.getTableName(), pgVectorProperties.getTableName()));
+            log.info("pgvector结构初始化完成, tableName={}, dimensions={}",
+                    pgVectorProperties.getTableName(), pgVectorProperties.getDimensions());
         } catch (Exception e) {
             log.warn("初始化 pgvector 结构失败: {}", e.getMessage());
         }
@@ -77,10 +79,11 @@ public class PgVectorRagVectorStoreServiceImpl implements RagVectorStoreService 
         if (!pgVectorProperties.isEnabled() || fileId == null) {
             return;
         }
-        pgVectorJdbcTemplate.update(
+        int deletedCount = pgVectorJdbcTemplate.update(
                 "delete from " + pgVectorProperties.getTableName() + " where file_id = ?",
                 fileId
         );
+        log.info("pgvector文件索引删除完成, fileId={}, deletedChunkCount={}", fileId, deletedCount);
     }
 
     @Override
@@ -128,6 +131,8 @@ public class PgVectorRagVectorStoreServiceImpl implements RagVectorStoreService 
                 return chunks.size();
             }
         });
+        Long fileId = chunks.get(0).getFileId();
+        log.info("pgvector向量chunk写入完成, fileId={}, chunkCount={}", fileId, chunks.size());
     }
 
     @Override
@@ -174,7 +179,10 @@ public class PgVectorRagVectorStoreServiceImpl implements RagVectorStoreService 
                 limit ?
                 """.formatted(pgVectorProperties.getTableName());
 
-        return pgVectorJdbcTemplate.query(sql, ragVectorChunkRowMapper(), fileId, toPgVectorLiteral(queryEmbedding), limit);
+        List<RagVectorChunk> chunks = pgVectorJdbcTemplate.query(sql, ragVectorChunkRowMapper(), fileId, toPgVectorLiteral(queryEmbedding), limit);
+        log.info("pgvector相似度检索完成, fileId={}, candidateLimit={}, candidateCount={}",
+                fileId, limit, chunks.size());
+        return chunks;
     }
 
     private RowMapper<RagVectorChunk> ragVectorChunkRowMapper() {

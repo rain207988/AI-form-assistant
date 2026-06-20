@@ -17,7 +17,7 @@ public interface RagService {
     RagContext retrieveContext(Long fileId, String userInput);
 
     /**
-     * 当前文件数据被修改后，主动失效内存索引
+     * 当前文件数据被修改后，主动失效 pgvector 文件索引
      *
      * @param fileId 当前文件ID
      */

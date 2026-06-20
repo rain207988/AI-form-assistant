@@ -11,7 +11,7 @@
 5. 把检索结果注入到原有 AI 流程
 6. 继续走原来的分类、选表、生成 SQL、执行 SQL、返回结果
 
-当前版本不依赖额外向量数据库，直接使用 **DashScope Embedding + ai-service 内存缓存索引** 完成 RAG。
+当前版本的基线已经升级为 **DashScope Embedding + PostgreSQL pgvector 持久化向量索引**。也就是说，RAG 不再只依赖 Java 内存对象，而是把当前文件的向量 chunk 写入 `rag_vector_chunks`，后续同一个文件再次提问时会优先复用 pgvector 中已有索引。
 
 ## 2. 为什么这样接
 
@@ -126,13 +126,13 @@ Sheet名称：一季度销售
 - 模型来源：DashScope Embedding
 - 默认 embedding 模型：`text-embedding-v3`
 
-### 第 4 步：缓存索引
+### 第 4 步：持久化并复用 pgvector 索引
 
-为了避免每次聊天都重新做 embedding，`RagServiceImpl` 做了按 `fileId` 的内存缓存：
+为了避免每次聊天都重新做 embedding，`RagServiceImpl` 会先检查 pgvector 中是否已经存在当前 `fileId` 的 chunk：
 
-- key：`fileId`
-- value：该文件的知识片段和向量
-- 过期时间：`chat2excel.rag.cache-minutes`
+- 如果不存在，就从文件元数据、表结构、字段映射、销售术语和样例数据构建 chunk，并写入 `rag_vector_chunks`
+- 如果已经存在，就复用 pgvector 中的已有索引
+- 如果文件数据被 AI 修改，更新流程会调用 `RagService.invalidate(fileId)` 删除旧 chunk，下次提问时重新构建
 
 也就是说，同一个文件连续问多次时，通常会直接复用索引。
 
@@ -141,10 +141,10 @@ Sheet名称：一季度销售
 收到用户问题后：
 
 1. 先对用户问题做一次向量化
-2. 和当前文件所有知识片段算余弦相似度
-3. 过滤掉低于阈值的片段
-4. 取 TopK 结果
-5. 拼成 `promptContext`
+2. 按 `fileId` 从 pgvector 检索候选 chunk
+3. 结合向量相似度、销售关键词、归一化业务词、时间摘要和表上下文做 Java 侧重排
+4. 聚合出候选表排序
+5. 取 TopK 结果并拼成 `promptContext`
 
 ### 第 6 步：把 RAG 注入原有 AI 链路
 
@@ -203,6 +203,8 @@ Sheet名称：一季度销售
 - 总片段数
 - 命中片段数
 - 命中的表名列表
+- 表级排序结果
+- 给前端展示的检索摘要
 - 给 Prompt 使用的上下文文本
 
 ### 7.2 `AiServiceImpl.prepareRagContextAndSendProgress(...)`
@@ -213,6 +215,21 @@ Sheet名称：一季度销售
 
 - 索引是新构建还是复用缓存
 - 本次检索命中了多少片段、涉及哪些表
+
+现在这两个 SSE 阶段还会带结构化 `metadata`，方便前端或调试工具读取：
+
+- `BUILD_RAG_INDEX`
+  - `ragEnabled`
+  - `indexAction`：`BUILT`、`REUSED` 或 `SKIPPED`
+  - `indexedChunkCount`
+  - `fallbackReason`
+- `RETRIEVE_RAG_CONTEXT`
+  - `matchedChunkCount`
+  - `matchedTableNames`
+  - `rankedTables`
+  - `fallbackReason`
+
+这些 metadata 不包含完整 Prompt 上下文，也不直接暴露样例行内容，避免调试信息泄露业务数据。
 
 ### 7.3 `AiServiceImpl.determineTargetTable(...)`
 
@@ -294,18 +311,18 @@ chat2excel:
 
 ## 9. 这一版 RAG 的边界
 
-当前版本是一个比较稳的第一版，优点是容易落地、改动小、能直接接到现有架构里。
+当前版本已经从早期“内存索引第一版”演进为“pgvector 持久化召回 + Java 销售语义重排”的版本。
 
 但它也有明确边界：
 
-1. 向量索引目前在内存里
-   - 服务重启后需要重新构建
-2. 样例数据是采样，不是全量入库
+1. 样例数据是采样，不是全量入库
    - 更适合“理解表和字段”，不是做全文搜索
-3. 目前没有接独立 rerank
-   - 先用 embedding 相似度直接排序
-4. 目前没有增量刷新接口
-   - 当前依赖缓存过期或服务重启重建
+2. 目前没有接独立 rerank 模型
+   - 当前是 pgvector 召回后，在 Java 侧做销售术语、时间字段和表级排序增强
+3. 当前以文件级重建为主
+   - 修改数据后会删除该文件全部 chunk，下次查询再重建，而不是做行级增量更新
+4. 这不是企业知识库
+   - 它主要服务当前 Excel 文件的查询、修改、分析和图表生成
 
 ## 10. 建议你接下来怎么验证
 
@@ -345,7 +362,19 @@ chat2excel:
 
 ### 10.3 再测连续多轮同文件提问
 
-连续问同一个文件几次，观察 `BUILD_RAG_INDEX` 阶段是否变成“复用RAG索引”。
+连续问同一个文件几次，观察 `BUILD_RAG_INDEX` 阶段是否变成“复用RAG索引”，并检查 SSE `metadata.indexAction` 是否从 `BUILT` 变成 `REUSED`。
+
+### 10.4 验证修改后索引失效
+
+对同一个销售文件先问一次查询问题，让系统构建索引；再执行一次修改类问题，例如：
+
+- “把华东区 5 月销售额修正为 10000”
+
+观察点：
+
+- 修改流程执行后服务日志应出现 `pgvector索引已失效`
+- 下一次对同一文件提问时，`BUILD_RAG_INDEX` 应重新显示构建索引
+- pgvector 表里的该 `fileId` chunk 会先被删除，再重新写入
 
 ## 11. 本次本地校验情况
 

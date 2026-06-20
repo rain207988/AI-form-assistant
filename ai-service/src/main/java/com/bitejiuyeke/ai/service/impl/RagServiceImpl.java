@@ -96,19 +96,19 @@ public class RagServiceImpl implements RagService {
     @Override
     public RagContext retrieveContext(Long fileId, String userInput) {
         if (!ragProperties.isEnabled()) {
-            return RagContext.empty("RAG未启用，继续走原始AI流程");
+            return emptyWithLog(fileId, "RAG未启用，继续走原始AI流程");
         }
         if (!pgVectorProperties.isEnabled()) {
-            return RagContext.empty("pgvector未启用，当前RAG自动降级");
+            return emptyWithLog(fileId, "pgvector未启用，当前RAG自动降级");
         }
         if (embeddingModel == null) {
-            return RagContext.empty("当前未检测到EmbeddingModel，RAG自动降级");
+            return emptyWithLog(fileId, "当前未检测到EmbeddingModel，RAG自动降级");
         }
         if (fileId == null) {
-            return RagContext.empty("文件ID为空，跳过RAG检索");
+            return emptyWithLog(null, "文件ID为空，跳过RAG检索");
         }
         if (!StringUtils.hasText(userInput)) {
-            return RagContext.empty("用户问题为空，跳过RAG检索");
+            return emptyWithLog(fileId, "用户问题为空，跳过RAG检索");
         }
 
         try {
@@ -123,6 +123,8 @@ public class RagServiceImpl implements RagService {
             );
 
             if (CollectionUtils.isEmpty(candidates)) {
+                log.info("RAG检索降级, fileId={}, cacheHit={}, indexedChunkCount={}, reason={}",
+                        fileId, resolution.isCacheHit(), resolution.getIndexedChunkCount(), "pgvector未命中可用片段");
                 return RagContext.builder()
                         .enabled(true)
                         .cacheHit(resolution.isCacheHit())
@@ -143,6 +145,8 @@ public class RagServiceImpl implements RagService {
             TableSelection tableSelection = selectTables(scoredChunks, queryAnalysis);
             List<ScoredChunk> matchedChunks = collectTopChunks(tableSelection, scoredChunks);
             if (matchedChunks.isEmpty()) {
+                log.info("RAG检索降级, fileId={}, cacheHit={}, indexedChunkCount={}, candidateCount={}, reason={}",
+                        fileId, resolution.isCacheHit(), resolution.getIndexedChunkCount(), candidates.size(), "pgvector未命中高相关片段");
                 return RagContext.builder()
                         .enabled(true)
                         .cacheHit(resolution.isCacheHit())
@@ -160,6 +164,8 @@ public class RagServiceImpl implements RagService {
             String promptContext = buildPromptContext(matchedChunks, matchedTableNames, tableSelection, queryAnalysis);
             String retrieveSummary = buildRetrieveSummary(matchedChunks, matchedTableNames, rankedTables, resolution.isCacheHit());
 
+            log.info("RAG检索完成, fileId={}, cacheHit={}, indexedChunkCount={}, matchedChunkCount={}, matchedTables={}, rankedTables={}",
+                    fileId, resolution.isCacheHit(), resolution.getIndexedChunkCount(), matchedChunks.size(), matchedTableNames, rankedTables);
             return RagContext.builder()
                     .enabled(true)
                     .cacheHit(resolution.isCacheHit())
@@ -187,20 +193,31 @@ public class RagServiceImpl implements RagService {
         log.info("pgvector索引已失效, fileId={}", fileId);
     }
 
+    private RagContext emptyWithLog(Long fileId, String summary) {
+        log.info("RAG检索降级, fileId={}, reason={}", fileId, summary);
+        return RagContext.empty(summary);
+    }
+
     private IndexResolution ensureVectorIndex(Long fileId) {
         if (ragVectorStoreService.existsByFileId(fileId)) {
-            return new IndexResolution(true, ragVectorStoreService.countByFileId(fileId));
+            int indexedChunkCount = ragVectorStoreService.countByFileId(fileId);
+            log.info("RAG索引复用, fileId={}, indexedChunkCount={}", fileId, indexedChunkCount);
+            return new IndexResolution(true, indexedChunkCount);
         }
 
         Object lock = buildLocks.computeIfAbsent(fileId, key -> new Object());
         synchronized (lock) {
             if (ragVectorStoreService.existsByFileId(fileId)) {
-                return new IndexResolution(true, ragVectorStoreService.countByFileId(fileId));
+                int indexedChunkCount = ragVectorStoreService.countByFileId(fileId);
+                log.info("RAG索引复用, fileId={}, indexedChunkCount={}", fileId, indexedChunkCount);
+                return new IndexResolution(true, indexedChunkCount);
             }
 
+            log.info("RAG索引开始构建, fileId={}", fileId);
             List<RagVectorChunk> chunks = buildVectorChunks(fileId);
             ragVectorStoreService.deleteByFileId(fileId);
             ragVectorStoreService.saveChunks(chunks);
+            log.info("RAG索引构建完成, fileId={}, indexedChunkCount={}", fileId, chunks.size());
             return new IndexResolution(false, chunks.size());
         }
     }

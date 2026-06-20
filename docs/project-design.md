@@ -283,9 +283,9 @@ sequenceDiagram
 
 - 不是企业知识库
 - 不是外部文档检索系统
-- 不是长期持久化的向量库
+- 不是跨文件、跨业务域的通用长期知识库
 
-当前版本使用的是 **内存缓存索引 + DashScope Embedding**，重点是先让文件内上下文可检索。
+当前版本使用的是 **PostgreSQL pgvector 持久化向量索引 + DashScope Embedding + Java 销售语义重排**。pgvector 负责按 `fileId` 做向量召回，Java 服务继续负责销售术语归一化、候选表排序和 Prompt 上下文组装。
 
 如果你想看更细的 RAG 设计，可以继续看：
 

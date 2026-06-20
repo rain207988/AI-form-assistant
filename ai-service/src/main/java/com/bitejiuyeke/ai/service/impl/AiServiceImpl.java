@@ -37,6 +37,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -210,15 +211,60 @@ public class AiServiceImpl implements AiService {
                 : "完成RAG索引构建，知识片段数: " + ragContext.getIndexedChunkCount())
                 : ragContext.getRetrieveSummary();
         String retrieveSummary = ragContext.getRetrieveSummary();
-        if (ragContext.isEnabled() && ragContext.getRankedTables() != null && !ragContext.getRankedTables().isEmpty()) {
+        if (ragContext.isEnabled() && !safeList(ragContext.getRankedTables()).isEmpty()) {
             retrieveSummary = retrieveSummary + "；候选表排序：" + String.join(", ", ragContext.getRankedTables());
         }
 
         sendProgressEventWithData(sseEmitter, PROGRESS, ProcessStage.BUILD_RAG_INDEX,
-                buildSummary, null, null, null, null);
+                buildSummary, null, null, null, null, buildRagIndexMetadata(ragContext));
         sendProgressEventWithData(sseEmitter, PROGRESS, ProcessStage.RETRIEVE_RAG_CONTEXT,
-                retrieveSummary, null, null, ragContext.getMatchedChunkCount(), null);
+                retrieveSummary, null, null, ragContext.getMatchedChunkCount(), null, buildRagRetrieveMetadata(ragContext));
         return ragContext;
+    }
+
+    private Map<String, Object> buildRagIndexMetadata(RagContext ragContext) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("ragEnabled", ragContext.isEnabled());
+        metadata.put("indexAction", resolveRagIndexAction(ragContext));
+        metadata.put("indexActionText", resolveRagIndexActionText(ragContext));
+        metadata.put("cacheHit", ragContext.isCacheHit());
+        metadata.put("indexedChunkCount", ragContext.getIndexedChunkCount());
+        if (!ragContext.isEnabled()) {
+            metadata.put("fallbackReason", ragContext.getRetrieveSummary());
+        }
+        return metadata;
+    }
+
+    private Map<String, Object> buildRagRetrieveMetadata(RagContext ragContext) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("ragEnabled", ragContext.isEnabled());
+        metadata.put("cacheHit", ragContext.isCacheHit());
+        metadata.put("indexedChunkCount", ragContext.getIndexedChunkCount());
+        metadata.put("matchedChunkCount", ragContext.getMatchedChunkCount());
+        metadata.put("matchedTableNames", safeList(ragContext.getMatchedTableNames()));
+        metadata.put("rankedTables", safeList(ragContext.getRankedTables()));
+        if (!ragContext.hasPromptContext()) {
+            metadata.put("fallbackReason", ragContext.getRetrieveSummary());
+        }
+        return metadata;
+    }
+
+    private String resolveRagIndexAction(RagContext ragContext) {
+        if (!ragContext.isEnabled()) {
+            return "SKIPPED";
+        }
+        return ragContext.isCacheHit() ? "REUSED" : "BUILT";
+    }
+
+    private String resolveRagIndexActionText(RagContext ragContext) {
+        if (!ragContext.isEnabled()) {
+            return "跳过RAG索引";
+        }
+        return ragContext.isCacheHit() ? "复用RAG索引" : "构建RAG索引";
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? Collections.emptyList() : values;
     }
 
     // 用来执行查询excel的操作
@@ -956,6 +1002,21 @@ public class AiServiceImpl implements AiService {
             Integer resultCount, // 查询结果总数
             String aiResponseContent // AI响应
     ) {
+        sendProgressEventWithData(sseEmitter, eventType, processStage, detail, sqlQuery,
+                resultPreview, resultCount, aiResponseContent, null);
+    }
+
+    private void sendProgressEventWithData(
+            SseEmitter sseEmitter, // 事件发送器
+            String eventType, // 事件类型
+            ProcessStage processStage, // 处理状态枚举
+            String detail, // 详细的消息
+            String sqlQuery, // SQL语句
+            List<Map<String, Object>> resultPreview, // 查询结果
+            Integer resultCount, // 查询结果总数
+            String aiResponseContent, // AI响应
+            Map<String, Object> metadata // 附加结构化信息
+    ) {
         StreamProcessEvent event = StreamProcessEvent.builder()
                 .eventType(eventType)
                 .stage(processStage.getCode())
@@ -969,6 +1030,7 @@ public class AiServiceImpl implements AiService {
                 .resultPreview(resultPreview)
                 .resultCount(resultCount)
                 .aiResponseContent(aiResponseContent)
+                .metadata(metadata)
                 .build();
         try {
             sseEmitter.send(

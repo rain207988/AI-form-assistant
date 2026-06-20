@@ -92,9 +92,11 @@ flowchart LR
    - 项目总设计说明，适合建立全局认知
 2. [docs/rag-integration-guide.md](./docs/rag-integration-guide.md)
    - RAG 接入设计与流程说明
-3. [docs/openspec-adoption.md](./docs/openspec-adoption.md)
+3. [docs/sales-rag-observability-checklist.md](./docs/sales-rag-observability-checklist.md)
+   - 销售报表 RAG 的 SSE、pgvector、候选表排序和缓存失效验收清单
+4. [docs/openspec-adoption.md](./docs/openspec-adoption.md)
    - OpenSpec 需求变更闸门和当前 `sales-rag` 变更说明
-4. [docs/README.md](./docs/README.md)
+5. [docs/README.md](./docs/README.md)
    - 文档目录
 
 ## 仓库结构
